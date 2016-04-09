@@ -73,18 +73,23 @@ class Field:
 
     def find_enclosures(self, screen = None):
         # recursively explore parcels in grid
-        def clear_checked(checklist, screen):
-            for w,h in checklist:
-                pygame.draw.circle(screen, BLACK, self.grid[w][h].rect.center, 15)
+        pos_set = [parcel.pos for parcel in self.flatgrid()]
+        enclosures = []
+        while len(pos_set) > 0:
 
+            checklist = self.get_enclosure(pos_set[0][0], pos_set[0][1], checklist=[], screen=screen)
+            pos_set = [pos for pos in pos_set if pos not in checklist]
+            enclosures.append(checklist)
 
-        checklist = self.get_enclosure(0, 0, checklist=[], screen=screen)
-        if screen is not None:
-            clear_checked(checklist, screen)
-        print(len(checklist), self.grid_width*self.grid_height)
-        return checklist
+            if screen is not None:
+                 for w,h in checklist:
+                    pygame.draw.circle(screen, BLACK, self.grid[w][h].rect.center, 15)
 
-    def get_enclosure(self, w, h, checklist=[], screen=None) -> [Parcel]:
+            #print(len(checklist), self.grid_width*self.grid_height, len(pos_set))
+
+        return enclosures
+
+    def get_enclosure(self, w, h, checklist=[], screen = None) -> [Parcel]:
         parcel = self.grid[w][h]
         if (w,h) in checklist:
             print(checklist)
@@ -100,17 +105,16 @@ class Field:
         checklist.append((w,h))
         if not parcel.north and h != 0 and (w, h-1) not in checklist:
             #print('({},{}) -> NORTH'.format(w,h))
-            checklist.extend(self.get_enclosure(w, h-1, checklist, screen))
+            checklist = self.get_enclosure(w, h-1, checklist, screen)
         if not parcel.east and w != self.grid_width-1 and (w+1, h) not in checklist:
             #print('({},{}) -> EAST'.format(w,h))
-            checklist.extend(self.get_enclosure(w+1, h, checklist, screen))
+            checklist = self.get_enclosure(w+1, h, checklist, screen)
         if not parcel.south and h != self.grid_height-1 and (w, h+1) not in checklist:
             #print('({},{}) -> SOUTH'.format(w,h))
-            checklist.extend(self.get_enclosure(w, h+1, checklist, screen))
+            checklist = self.get_enclosure(w, h+1, checklist, screen)
         if not parcel.west and w != 0 and (w-1, h) not in checklist:
             #print('({},{}) -> WEST'.format(w,h))
-            checklist.extend(self.get_enclosure(w-1, h, checklist, screen))
-
+            checklist = self.get_enclosure(w-1, h, checklist, screen)
 
         try:
             pygame.draw.circle(screen, RED, self.grid[w][h].rect.center, 15)
@@ -118,13 +122,14 @@ class Field:
             pygame.time.wait(20)
         except:
             pass
-        print('({},{}) TAPPED OUT at {}'.format(w,h,len(checklist)))
-        return []
-
+        #print('({},{}) TAPPED OUT at {}'.format(w,h,len(checklist)))
+        return checklist
 
 
     def flatgrid(self):
         return [item for sublist in self.grid for item in sublist]
+
+
 
 class GField(Field):
     def __init__(self, field, sqsize, fence_width):
@@ -189,8 +194,15 @@ while run:
                         try: field.grid[w-1][h].east = True
                         except: pass
 
+            print()
             enclosures = field.find_enclosures(screen)
-                # determine if fences make a loop
+            for enc in enclosures:
+                pigsum = 0
+                for w,h in enc:
+                    if field.grid[w][h].pig:
+                        pigsum += 1
+                print('pigsum={} , enclen={}'.format(pigsum, len(enc)))
+
                 # count pigs in loop, score pigs, remove pigs from loop
                 # gain more fences
 
